@@ -1,3 +1,4 @@
+
 // list/list.c
 // 
 // Implementation for linked list.
@@ -98,31 +99,36 @@ void list_add_at_index(list_t *l, block_t *blk, int index){
   }
 }
 
-void list_add_ascending_by_address(list_t *l, block_t *newblk){
-  
-   /*
-   * 1. Insert newblk into list l in ascending order based on the START address of the block.
-   * 
-   *    node_t *c = l.head;
-   *    Insert newblk After Current Node if:   newblk->start > c->start
-   */
+void list_add_ascending_by_address(list_t *l, block_t *newblk) {
+    node_t *newNode = node_alloc(newblk);
+    if (!l->head || newblk->start < l->head->blk->start) {
+        newNode->next = l->head;
+        l->head = newNode;
+        return;
+    }
+
+    node_t *current = l->head;
+    while (current->next && newblk->start >= current->next->blk->start) {
+        current = current->next;
+    }
+    newNode->next = current->next;
+    current->next = newNode;
 }
 
-void list_add_ascending_by_blocksize(list_t *l, block_t *newblk){
-   /*
-   * 1. Insert newblk into list l in ascending order based on the blocksize.
-   *    blocksize is calculated :  blocksize = end - start +1
-   * 
-   *    Ex:  blocksize = newblk->end - newblk->start
-   * 
-   *         node_t *c = l.head;
-   * 
-   *         curr_blocksize = c->blk->end - c->blk->start +1;
-   * 
-   *         Insert newblk After Current Node if:   blocksize >= curr_blocksize
-   * 
-   *    USE the compareSize()
-   */
+void list_add_ascending_by_blocksize(list_t *l, block_t *newblk) {
+    node_t *newNode = node_alloc(newblk);
+    if (!l->head || (newblk->end - newblk->start + 1) < (l->head->blk->end - l->head->blk->start + 1)) {
+        newNode->next = l->head;
+        l->head = newNode;
+        return;
+    }
+
+    node_t *current = l->head;
+    while (current->next && (newblk->end - newblk->start + 1) >= (current->next->blk->end - current->next->blk->start + 1)) {
+        current = current->next;
+    }
+    newNode->next = current->next;
+    current->next = newNode;
 }
 
 void list_add_descending_by_blocksize(list_t *l, block_t *blk){
@@ -172,21 +178,20 @@ void list_add_descending_by_blocksize(list_t *l, block_t *blk){
   }
 }
 
-void list_coalese_nodes(list_t *l){ 
-  /*
-   * 1. Assuming you have passed in a sorted list of blocks based on addresses in ascending order
-   * 2. While list is not empty,
-   *    a. compare two nodes at a time to see if the prev.END + 1 == current.START, if so, they are physically adjacent
-   *    combine them by setting the prev.END = current.END. 
-   *    b. If not adjacent go to #6
-   * 3. point the prev.NEXT to the current.NEXT to skip over current.
-   * 4. Free current
-   * 5. go back to #2
-   * 6. Advance prev = current, and current = current.NEXT
-   * 7. go back to #2
-   * 
-   * USE the compareSize()
-   */
+void list_coalese_nodes(list_t *l) {
+    node_t *current = l->head;
+    while (current && current->next) {
+        block_t *curr_blk = current->blk;
+        block_t *next_blk = current->next->blk;
+        if (curr_blk->end + 1 == next_blk->start) {
+            curr_blk->end = next_blk->end;
+            node_t *temp = current->next;
+            current->next = temp->next;
+            node_free(temp);
+        } else {
+            current = current->next;
+        }
+    }
 }
 
 block_t* list_remove_from_back(list_t *l){
@@ -300,7 +305,7 @@ bool comparePid(int a, block_t *b) {
 }
 
 
-bool list_is_in(list_t *l, block_t* value) { 
+bool list_is_in(list_t l, block_t value) { 
   node_t *current = l->head;
   while(current != NULL){
     if(compareBlks(value, current->blk)){
@@ -336,7 +341,7 @@ block_t* list_get_elem_at(list_t *l, int index) {
   return value; 
 }
 
-int list_get_index_of(list_t *l, block_t* value){
+int list_get_index_of(list_t l, block_t value){
  int i = 0;
  node_t *current = l->head;
  if(l->head == NULL){
@@ -366,13 +371,15 @@ return false;
 }
 
 /* Checks to see if pid of block exists in the list. */
-bool list_is_in_by_pid(list_t *l, int pid){ 
-  
-  /* Iterate through the list to find a node with a blk that has blk->pid = pid
-   * 
-   * USE the comparePID()
-   * 
-   * Look at list_is_in_by_size()
+bool list_is_in_by_pid(list_t *l, int pid) {
+    node_t *current = l->head;
+    while (current != NULL) {
+        if (comparePid(pid, current->blk)) {
+            return true;
+        }
+        current = current->next;
+    }
+    return false;
 }
 
 /* Returns the index at which the given block of Size or greater appears. */
